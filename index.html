@@ -1,0 +1,1665 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Cloudflare Workers 新手基礎教學與使用手冊：從核心概念、第一個 Worker、部署、網域、機密管理到除錯與費用。">
+  <meta name="color-scheme" content="light dark">
+  <title>Cloudflare Workers 新手基礎教學與使用手冊</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --paper: #ffffff;
+      --paper-soft: #fffaf4;
+      --ink: #172033;
+      --muted: #5d6675;
+      --line: #dce1e8;
+      --line-strong: #c7ced8;
+      --brand: #d95d0b;
+      --brand-strong: #a83d00;
+      --brand-soft: #fff0e3;
+      --navy: #0b1f33;
+      --navy-soft: #eaf1f8;
+      --blue: #1769aa;
+      --green: #1f7a4d;
+      --green-soft: #e8f6ef;
+      --yellow: #9a6400;
+      --yellow-soft: #fff5d7;
+      --red: #ad2e24;
+      --red-soft: #fff0ee;
+      --code-bg: #111827;
+      --code-ink: #e5edf7;
+      --shadow: 0 16px 44px rgba(11, 31, 51, .08);
+      --radius: 18px;
+      --sidebar: 286px;
+      --content: 900px;
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0c111b;
+      --paper: #131b28;
+      --paper-soft: #1e1a17;
+      --ink: #edf2f8;
+      --muted: #a8b2c0;
+      --line: #2a3545;
+      --line-strong: #3b485a;
+      --brand: #ff8a3d;
+      --brand-strong: #ffad73;
+      --brand-soft: #352014;
+      --navy: #dcecff;
+      --navy-soft: #172538;
+      --blue: #72b8f2;
+      --green: #72d3a4;
+      --green-soft: #153126;
+      --yellow: #f4c764;
+      --yellow-soft: #332b17;
+      --red: #ff8b83;
+      --red-soft: #351c1b;
+      --code-bg: #080c12;
+      --code-ink: #e9f0f8;
+      --shadow: 0 18px 48px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 28px;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 85% -10%, rgba(244, 129, 32, .14), transparent 32rem),
+        var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+      font-size: 17px;
+      line-height: 1.72;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration-thickness: .08em;
+      text-underline-offset: .18em;
+    }
+
+    a:hover { text-decoration-thickness: .14em; }
+    button, input { font: inherit; }
+
+    :focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--brand) 78%, white);
+      outline-offset: 3px;
+      border-radius: 5px;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 1000;
+      top: 10px;
+      left: 10px;
+      transform: translateY(-160%);
+      padding: .65rem 1rem;
+      border-radius: 9px;
+      background: var(--navy);
+      color: var(--paper);
+    }
+
+    .skip-link:focus { transform: translateY(0); }
+
+    .progress {
+      position: fixed;
+      z-index: 900;
+      inset: 0 auto auto 0;
+      height: 4px;
+      width: 0;
+      background: linear-gradient(90deg, var(--brand), #ffb24d);
+      box-shadow: 0 0 12px rgba(244, 129, 32, .45);
+    }
+
+    .topbar {
+      position: sticky;
+      z-index: 800;
+      top: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 58px;
+      padding: 8px clamp(16px, 4vw, 48px);
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+      background: color-mix(in srgb, var(--paper) 88%, transparent);
+      backdrop-filter: blur(14px);
+    }
+
+    .brandmark {
+      display: flex;
+      align-items: center;
+      gap: .68rem;
+      color: var(--ink);
+      font-size: .92rem;
+      font-weight: 760;
+      letter-spacing: .01em;
+    }
+
+    .brandmark::before {
+      content: "";
+      width: 28px;
+      height: 28px;
+      border-radius: 9px 5px 9px 5px;
+      background: linear-gradient(145deg, #ff9c54, var(--brand));
+      box-shadow: inset -6px -5px 0 rgba(128, 49, 0, .12);
+      transform: rotate(-5deg);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+    }
+
+    .tool-button, .menu-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 39px;
+      padding: .45rem .78rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--paper);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .tool-button:hover, .menu-button:hover {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+
+    .menu-button { display: none; }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(58px, 9vw, 108px) clamp(20px, 6vw, 76px) 64px;
+      background:
+        linear-gradient(125deg, rgba(255,255,255,.02), rgba(255,255,255,.08)),
+        var(--navy);
+      color: #fff;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: min(52vw, 620px);
+      aspect-ratio: 1;
+      right: -13%;
+      top: -52%;
+      border: 70px solid rgba(244, 129, 32, .25);
+      border-radius: 50%;
+      transform: rotate(22deg);
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: .55rem;
+      margin: 0 0 1rem;
+      color: #ffbf8d;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 34px;
+      height: 2px;
+      background: currentColor;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-size: clamp(2.45rem, 6vw, 5.15rem);
+      line-height: 1.03;
+      letter-spacing: -.052em;
+    }
+
+    .hero-lead {
+      max-width: 720px;
+      margin: 1.45rem 0 0;
+      color: #cfdae7;
+      font-size: clamp(1.05rem, 2.1vw, 1.3rem);
+      line-height: 1.65;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .62rem;
+      margin-top: 2rem;
+    }
+
+    .hero-meta span {
+      padding: .42rem .72rem;
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 999px;
+      background: rgba(255,255,255,.07);
+      color: #eef5fc;
+      font-size: .84rem;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: var(--sidebar) minmax(0, var(--content));
+      justify-content: center;
+      align-items: start;
+      gap: clamp(28px, 4vw, 58px);
+      max-width: calc(var(--sidebar) + var(--content) + 90px);
+      margin: 0 auto;
+      padding: 44px clamp(18px, 4vw, 48px) 100px;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 82px;
+      max-height: calc(100vh - 100px);
+      overflow: auto;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--paper) 94%, transparent);
+      box-shadow: 0 10px 30px rgba(11,31,51,.045);
+    }
+
+    .sidebar-title {
+      margin: .15rem .6rem .5rem;
+      color: var(--muted);
+      font-size: .74rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .toc {
+      display: grid;
+      gap: .15rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .toc a {
+      display: block;
+      padding: .47rem .62rem;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: .88rem;
+      line-height: 1.35;
+      text-decoration: none;
+    }
+
+    .toc a:hover {
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+    }
+
+    .toc a.active {
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      font-weight: 740;
+    }
+
+    main { min-width: 0; }
+
+    section {
+      margin: 0 0 28px;
+      padding: clamp(26px, 4vw, 44px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .section-kicker {
+      margin: 0 0 .35rem;
+      color: var(--brand);
+      font-size: .76rem;
+      font-weight: 820;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin: 0 0 1.15rem;
+      color: var(--navy);
+      font-size: clamp(1.65rem, 3.2vw, 2.45rem);
+      line-height: 1.16;
+      letter-spacing: -.025em;
+    }
+
+    h3 {
+      margin: 2.1rem 0 .7rem;
+      color: var(--ink);
+      font-size: clamp(1.13rem, 2vw, 1.36rem);
+      line-height: 1.3;
+    }
+
+    h4 {
+      margin: 1.35rem 0 .45rem;
+      font-size: 1rem;
+    }
+
+    p { margin: .7rem 0 1rem; }
+    ul, ol { padding-left: 1.35rem; }
+    li + li { margin-top: .4rem; }
+    code { font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace; }
+
+    .lede {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .answer {
+      margin: 1.4rem 0;
+      padding: 1.25rem 1.35rem;
+      border-left: 5px solid var(--brand);
+      border-radius: 0 14px 14px 0;
+      background: var(--brand-soft);
+    }
+
+    .answer strong {
+      display: block;
+      margin-bottom: .25rem;
+      color: var(--brand-strong);
+      font-size: 1.08rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      margin: 1.25rem 0;
+    }
+
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .card {
+      min-width: 0;
+      padding: 1.08rem 1.12rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+    }
+
+    .card h3, .card h4 {
+      margin-top: 0;
+    }
+
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+
+    .number {
+      display: inline-grid;
+      place-items: center;
+      width: 31px;
+      height: 31px;
+      margin-bottom: .7rem;
+      border-radius: 9px;
+      background: var(--navy);
+      color: var(--paper);
+      font-size: .8rem;
+      font-weight: 820;
+    }
+
+    .tag {
+      display: inline-block;
+      margin: .12rem .15rem .12rem 0;
+      padding: .17rem .48rem;
+      border-radius: 999px;
+      background: var(--navy-soft);
+      color: var(--blue);
+      font-size: .75rem;
+      font-weight: 720;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: .7rem;
+      margin: 1.4rem 0;
+      padding: 1rem;
+      border: 1px dashed var(--line-strong);
+      border-radius: 14px;
+      background: var(--bg);
+    }
+
+    .flow-box {
+      padding: .9rem .7rem;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--paper);
+      text-align: center;
+    }
+
+    .flow-box strong {
+      display: block;
+      margin-bottom: .15rem;
+      font-size: .92rem;
+    }
+
+    .flow-box span {
+      color: var(--muted);
+      font-size: .78rem;
+    }
+
+    .arrow {
+      color: var(--brand);
+      font-size: 1.3rem;
+      font-weight: 900;
+    }
+
+    .callout {
+      margin: 1.2rem 0;
+      padding: 1rem 1.1rem;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--navy-soft);
+    }
+
+    .callout.warning {
+      border-color: color-mix(in srgb, var(--yellow) 35%, var(--line));
+      background: var(--yellow-soft);
+    }
+
+    .callout.danger {
+      border-color: color-mix(in srgb, var(--red) 35%, var(--line));
+      background: var(--red-soft);
+    }
+
+    .callout.success {
+      border-color: color-mix(in srgb, var(--green) 35%, var(--line));
+      background: var(--green-soft);
+    }
+
+    .callout-title {
+      display: block;
+      margin-bottom: .25rem;
+      font-weight: 800;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 620px;
+      font-size: .92rem;
+    }
+
+    th, td {
+      padding: .82rem .9rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--navy-soft);
+      color: var(--navy);
+      font-size: .81rem;
+      letter-spacing: .02em;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .steps {
+      margin: 1.2rem 0;
+      padding: 0;
+      counter-reset: steps;
+      list-style: none;
+    }
+
+    .steps > li {
+      position: relative;
+      min-height: 52px;
+      margin: 0;
+      padding: 0 0 1.45rem 3.6rem;
+      counter-increment: steps;
+    }
+
+    .steps > li::before {
+      content: counter(steps);
+      position: absolute;
+      left: 0;
+      top: -.05rem;
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: var(--brand);
+      color: white;
+      font-weight: 820;
+      box-shadow: 0 6px 14px rgba(217,93,11,.2);
+    }
+
+    .steps > li::after {
+      content: "";
+      position: absolute;
+      left: 18px;
+      top: 43px;
+      bottom: 5px;
+      width: 2px;
+      background: var(--line);
+    }
+
+    .steps > li:last-child::after { display: none; }
+    .steps strong { display: block; margin-bottom: .2rem; }
+
+    .codebox {
+      position: relative;
+      margin: 1rem 0 1.35rem;
+      border: 1px solid #263245;
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--code-bg);
+      box-shadow: 0 12px 26px rgba(0,0,0,.12);
+    }
+
+    .codehead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 43px;
+      padding: .45rem .55rem .45rem .9rem;
+      border-bottom: 1px solid #2e3a4d;
+      color: #aebbd0;
+      font-size: .75rem;
+      letter-spacing: .04em;
+    }
+
+    .copy {
+      padding: .3rem .58rem;
+      border: 1px solid #41506a;
+      border-radius: 8px;
+      background: #182234;
+      color: #dce7f6;
+      font-size: .73rem;
+      cursor: pointer;
+    }
+
+    .copy:hover { background: #24314a; }
+
+    pre {
+      margin: 0;
+      padding: 1rem 1.1rem 1.15rem;
+      overflow: auto;
+      color: var(--code-ink);
+      font-size: .84rem;
+      line-height: 1.63;
+      tab-size: 2;
+    }
+
+    .inline-code {
+      padding: .13rem .34rem;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--bg);
+      color: var(--brand-strong);
+      font-size: .88em;
+    }
+
+    .checklist {
+      display: grid;
+      gap: .55rem;
+      margin: 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .checklist label {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: .65rem;
+      align-items: start;
+      padding: .7rem .78rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg);
+      cursor: pointer;
+    }
+
+    .checklist input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin-top: .22rem;
+      accent-color: var(--brand);
+    }
+
+    details {
+      margin: .72rem 0;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--paper);
+    }
+
+    summary {
+      padding: .82rem 1rem;
+      color: var(--ink);
+      font-weight: 740;
+      cursor: pointer;
+    }
+
+    details > div {
+      padding: 0 1rem .95rem;
+      color: var(--muted);
+    }
+
+    .source-list {
+      display: grid;
+      gap: .58rem;
+      margin: 1rem 0 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: refs;
+    }
+
+    .source-list li {
+      position: relative;
+      padding-left: 2.4rem;
+      counter-increment: refs;
+    }
+
+    .source-list li::before {
+      content: counter(refs, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      top: .1rem;
+      color: var(--brand);
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: .76rem;
+      font-weight: 800;
+    }
+
+    .source-list small {
+      display: block;
+      color: var(--muted);
+    }
+
+    .footer {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px 70px;
+      color: var(--muted);
+      font-size: .86rem;
+      text-align: center;
+    }
+
+    .only-screen { display: initial; }
+
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: minmax(0, var(--content)); }
+      .sidebar {
+        position: fixed;
+        z-index: 850;
+        inset: 68px 14px auto 14px;
+        max-height: calc(100vh - 84px);
+        transform: translateY(-130%);
+        transition: transform .22s ease;
+        box-shadow: 0 24px 60px rgba(0,0,0,.25);
+      }
+      .sidebar.open { transform: translateY(0); }
+      .menu-button { display: inline-flex; }
+    }
+
+    @media (max-width: 720px) {
+      body { font-size: 16px; }
+      .topbar { padding-inline: 12px; }
+      .brandmark span { display: none; }
+      .tool-button .label { display: none; }
+      .hero { padding-top: 52px; }
+      .hero::after { right: -42%; top: -20%; }
+      .shell { padding: 24px 12px 70px; }
+      section { padding: 24px 19px; border-radius: 14px; }
+      .grid, .grid.three { grid-template-columns: 1fr; }
+      .flow {
+        grid-template-columns: 1fr;
+        gap: .45rem;
+      }
+      .arrow { transform: rotate(90deg); justify-self: center; }
+      .steps > li { padding-left: 3.1rem; }
+      pre { font-size: .78rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+
+    @media print {
+      @page { size: A4; margin: 16mm 14mm 18mm; }
+      :root {
+        --paper: #fff;
+        --bg: #fff;
+        --ink: #111827;
+        --muted: #4b5563;
+        --line: #d1d5db;
+        --navy: #0b1f33;
+        --navy-soft: #eef3f8;
+        --brand: #b84c08;
+        --brand-soft: #fff2e7;
+        --code-bg: #f3f4f6;
+        --code-ink: #111827;
+      }
+      body { background: #fff; font-size: 10.5pt; }
+      .topbar, .sidebar, .progress, .copy, .only-screen { display: none !important; }
+      .hero {
+        min-height: 112mm;
+        padding: 40mm 15mm 20mm;
+        color: #fff;
+        break-after: page;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+      .hero h1 { font-size: 33pt; }
+      .shell { display: block; max-width: none; padding: 0; }
+      section {
+        margin: 0;
+        padding: 8mm 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        break-inside: auto;
+      }
+      section + section { border-top: 1px solid #d1d5db; }
+      h2, h3 { break-after: avoid; }
+      .card, .callout, .codebox, .table-wrap, details { break-inside: avoid; }
+      .codebox { border-color: #cbd5e1; box-shadow: none; }
+      .codehead { color: #374151; border-color: #cbd5e1; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+      a { color: #0f4c81; }
+      .footer { padding: 8mm 0 0; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要內容</a>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brandmark"><span>Cloudflare Workers 新手手冊</span></div>
+    <div class="toolbar">
+      <button class="menu-button" id="menuToggle" type="button" aria-controls="sidebar" aria-expanded="false">目錄</button>
+      <button class="tool-button" id="themeToggle" type="button" aria-label="切換明暗模式"><span aria-hidden="true">◐</span><span class="label">&nbsp;明暗</span></button>
+      <button class="tool-button" id="printButton" type="button"><span aria-hidden="true">⎙</span><span class="label">&nbsp;列印</span></button>
+    </div>
+  </header>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Beginner handbook · v1</p>
+      <h1>Cloudflare Workers<br>新手基礎教學與使用手冊</h1>
+      <p class="hero-lead">從「Cloudflare 可以做什麼」開始，理解邊緣運算、完成第一個 API、部署公開網址，再學會網域、資料、機密、記錄與費用管理。</p>
+      <div class="hero-meta">
+        <span>適合：第一次接觸 Workers</span>
+        <span>實作環境：Windows PowerShell</span>
+        <span>範例語言：JavaScript</span>
+        <span>資料查核：2026-08-18</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar" id="sidebar" aria-label="章節目錄">
+      <p class="sidebar-title">Contents</p>
+      <nav>
+        <ol class="toc">
+          <li><a href="#quick-answer">先用一句話說明</a></li>
+          <li><a href="#cloudflare-map">Cloudflare 與 Workers</a></li>
+          <li><a href="#use-cases">Workers 可以做什麼</a></li>
+          <li><a href="#mental-model">運作方式與核心名詞</a></li>
+          <li><a href="#choose-path">三種使用方式</a></li>
+          <li><a href="#prerequisites">開始前準備</a></li>
+          <li><a href="#first-worker">實作：第一個 Worker</a></li>
+          <li><a href="#deploy">部署與公開網址</a></li>
+          <li><a href="#static-site">發布單檔 HTML</a></li>
+          <li><a href="#domains">綁定自己的網域</a></li>
+          <li><a href="#storage">KV、D1、R2 怎麼選</a></li>
+          <li><a href="#secrets">環境變數與機密</a></li>
+          <li><a href="#observe">記錄、除錯與回復</a></li>
+          <li><a href="#pricing">免費額度與費用</a></li>
+          <li><a href="#security">安全與上線檢查</a></li>
+          <li><a href="#roadmap">下一步學習路線</a></li>
+          <li><a href="#faq">常見問題</a></li>
+          <li><a href="#references">官方參考資料</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main id="main">
+      <section id="quick-answer">
+        <p class="section-kicker">Start here</p>
+        <h2>先用一句話說明</h2>
+        <div class="answer">
+          <strong>Cloudflare Workers 是「不用自己養伺服器」的雲端程式執行環境。</strong>
+          使用者送出網頁或 API 請求時，Cloudflare 會在其全球網路上執行你的程式，再把結果回傳。你負責程式與設定，Cloudflare 負責執行環境、擴展與部署。
+        </div>
+        <p>它特別適合 API、網址轉址、Webhook、存取控制、靜態或全端網站、排程工作，以及需要靠近使用者處理的輕量服務。Workers 採事件驅動模式，不是租一台永遠開著的 Windows 或 Linux 主機。</p>
+        <div class="callout success">
+          <span class="callout-title">新手的正確起點</span>
+          先做一個無資料庫的 HTTP Worker，學會本機預覽、部署與讀取記錄；有真實資料需求時，再加入 D1、KV 或 R2。
+        </div>
+      </section>
+
+      <section id="cloudflare-map">
+        <p class="section-kicker">01 · Big picture</p>
+        <h2>Cloudflare 不只是一個產品</h2>
+        <p class="lede">Cloudflare 是一整套網路、安全、效能與開發者平台。Workers 是其中負責「執行程式」的核心服務之一。</p>
+        <div class="grid three">
+          <article class="card">
+            <span class="number">A</span>
+            <h3>網路與效能</h3>
+            <p>DNS、CDN、快取、流量代理與效能最佳化。目標是讓網站更快、更穩。</p>
+          </article>
+          <article class="card">
+            <span class="number">B</span>
+            <h3>安全</h3>
+            <p>DDoS 防護、WAF、機器人管理、Zero Trust 與存取控制。不同方案的功能與額度不同。</p>
+          </article>
+          <article class="card">
+            <span class="number">C</span>
+            <h3>開發者平台</h3>
+            <p>Workers 負責運算，搭配 D1、KV、R2、Queues、Workers AI 等服務組成完整應用程式。</p>
+          </article>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>工具</th><th>它做的事</th><th>什麼時候使用</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Workers</strong></td><td>執行後端、API 或邊緣程式</td><td>需要依請求執行邏輯</td></tr>
+              <tr><td><strong>Workers Static Assets</strong></td><td>提供 HTML、CSS、JavaScript、圖片等檔案</td><td>靜態網站、SPA 或全端網站前端</td></tr>
+              <tr><td><strong>Cloudflare Tunnel</strong></td><td>安全地把既有本機／內網服務接到 Cloudflare</td><td>程式仍跑在自己的電腦或主機</td></tr>
+              <tr><td><strong>傳統 VPS</strong></td><td>提供完整、長時間運作的作業系統</td><td>需要常駐程序、特殊系統套件或完整主機控制</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="use-cases">
+        <p class="section-kicker">02 · Use cases</p>
+        <h2>Workers 可以做什麼？</h2>
+        <div class="grid">
+          <article class="card">
+            <span class="tag">API</span><span class="tag">Webhook</span>
+            <h3>建立後端 API</h3>
+            <p>接收表單、回傳 JSON、處理第三方 Webhook，或替前端提供資料。</p>
+          </article>
+          <article class="card">
+            <span class="tag">Redirect</span><span class="tag">Proxy</span>
+            <h3>轉址與請求改寫</h3>
+            <p>依網址、裝置、語言或登入狀態決定去向，也能調整標頭與回應內容。</p>
+          </article>
+          <article class="card">
+            <span class="tag">Static</span><span class="tag">Full-stack</span>
+            <h3>發布網站</h3>
+            <p>提供靜態檔案，也能把前端與 Worker API 放在同一個專案。</p>
+          </article>
+          <article class="card">
+            <span class="tag">Auth</span><span class="tag">Gateway</span>
+            <h3>認證與 API 閘道</h3>
+            <p>在請求抵達原始系統前驗證權限、限制方法、統一錯誤格式或做速率控制。</p>
+          </article>
+          <article class="card">
+            <span class="tag">Cron</span><span class="tag">Queue</span>
+            <h3>排程與非同步工作</h3>
+            <p>定時同步資料、寄送通知，或把耗時工作排入 Queues 後再處理。Cron 以 UTC 設定。</p>
+          </article>
+          <article class="card">
+            <span class="tag">Data</span><span class="tag">AI</span>
+            <h3>資料與 AI 應用</h3>
+            <p>透過 bindings 連接 D1、KV、R2、Durable Objects、Workers AI 等平台資源。</p>
+          </article>
+        </div>
+
+        <h3>適合與不適合</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>適合</th><th>不應直接把 Workers 當成</th></tr></thead>
+            <tbody>
+              <tr><td>短時間、事件驅動、可水平擴展的 HTTP 工作</td><td>永遠開著的傳統伺服器或背景常駐程式</td></tr>
+              <tr><td>全球 API、轉址、驗證、內容轉換</td><td>完整 Windows 桌面、Office 或 GUI 執行環境</td></tr>
+              <tr><td>靜態網站與搭配 bindings 的全端應用</td><td>未重新設計就直接搬入的重型單機資料庫</td></tr>
+              <tr><td>輕量排程、佇列、Webhook</td><td>長時間影片轉檔、巨量 CPU／記憶體運算</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="mental-model">
+        <p class="section-kicker">03 · Mental model</p>
+        <h2>先建立正確的運作概念</h2>
+        <div class="flow" role="img" aria-label="瀏覽器送出請求，Cloudflare 網路執行 Worker，Worker 回傳結果">
+          <div class="flow-box"><strong>瀏覽器／App</strong><span>送出 HTTP 請求</span></div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="flow-box"><strong>Cloudflare 網路</strong><span>把請求交給 Worker</span></div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="flow-box"><strong>Worker</strong><span>執行程式並回傳 Response</span></div>
+        </div>
+        <p>最基本的 Worker 就是一個函式：收到 <span class="inline-code">Request</span>，執行判斷，再產生 <span class="inline-code">Response</span>。需要資料時，不把資料存在程式記憶體，而是透過 binding 存取 D1、KV、R2 或其他服務。</p>
+
+        <div class="grid">
+          <article class="card">
+            <h3>無伺服器（Serverless）</h3>
+            <p>不代表「沒有伺服器」，而是不用自己安裝、修補與擴展伺服器。平台依請求啟動程式並計量。</p>
+          </article>
+          <article class="card">
+            <h3>邊緣運算（Edge）</h3>
+            <p>程式由 Cloudflare 網路處理，通常可在接近使用者的位置回應，減少繞回單一機房的距離。</p>
+          </article>
+          <article class="card">
+            <h3>無狀態（Stateless）</h3>
+            <p>不要假設下一次請求仍會使用同一份記憶體。要保留的資料必須寫入適合的儲存服務。</p>
+          </article>
+          <article class="card">
+            <h3>Binding</h3>
+            <p>Worker 與資料庫、儲存桶、AI 或其他 Worker 的安全連接。程式透過 <span class="inline-code">env</span> 使用它。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="choose-path">
+        <p class="section-kicker">04 · Entry points</p>
+        <h2>三種使用方式，怎麼選？</h2>
+        <div class="grid three">
+          <article class="card">
+            <span class="number">1</span>
+            <h3>Workers Playground</h3>
+            <p>不想先安裝工具時，用瀏覽器快速改程式與測試。適合理解 Request／Response，不適合作為正式版本管理。</p>
+            <p><a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">開啟 Workers Playground</a></p>
+          </article>
+          <article class="card">
+            <span class="number">2</span>
+            <h3>Cloudflare 控制台</h3>
+            <p>可建立 Worker、調整設定、看部署與記錄。適合快速體驗與日常監看。</p>
+            <p><a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">開啟 Cloudflare Dashboard</a></p>
+          </article>
+          <article class="card">
+            <span class="number">3</span>
+            <h3>Wrangler CLI</h3>
+            <p>官方命令列工具，可建立、預覽、部署、管理機密與記錄。正式專案建議走這條路。</p>
+            <p><strong>本手冊採用此方式。</strong></p>
+          </article>
+        </div>
+        <div class="callout">
+          <span class="callout-title">建議流程</span>
+          Playground 看懂概念 → Wrangler 在本機建立專案 → Git 保存版本 → Cloudflare 部署。不要長期只在控制台直接改程式，否則本機與線上容易分岔。
+        </div>
+      </section>
+
+      <section id="prerequisites">
+        <p class="section-kicker">05 · Prerequisites</p>
+        <h2>開始前準備</h2>
+        <ul class="checklist">
+          <li><label><input type="checkbox"><span>註冊 Cloudflare 帳號。第一個練習不需要先買網域。</span></label></li>
+          <li><label><input type="checkbox"><span>Windows 11 已安裝目前受支援的 Node.js 版本；新手建議使用當期 LTS。</span></label></li>
+          <li><label><input type="checkbox"><span>可使用 PowerShell 或 Windows Terminal。</span></label></li>
+          <li><label><input type="checkbox"><span>準備文字編輯器，例如 Visual Studio Code。</span></label></li>
+        </ul>
+
+        <h3>確認 Node.js 與 npm</h3>
+        <div class="codebox">
+          <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+          <pre><code>node --version
+npm --version</code></pre>
+        </div>
+        <p>兩行都應顯示版本號。若出現「無法辨識」或找不到命令，先安裝／更新 Node.js，再重新開啟 PowerShell。</p>
+        <div class="callout warning">
+          <span class="callout-title">不要全域安裝 Wrangler 當唯一版本</span>
+          Cloudflare 建議把 Wrangler 裝在每個專案裡，讓團隊與不同電腦使用相同版本。透過 <span class="inline-code">npx wrangler</span> 執行即可。
+        </div>
+      </section>
+
+      <section id="first-worker">
+        <p class="section-kicker">06 · Hands-on</p>
+        <h2>實作：第一個 Worker API</h2>
+        <p class="lede">這個練習會建立三個網址：首頁說明、健康檢查，以及可接收名字的 JSON API。</p>
+
+        <ol class="steps">
+          <li>
+            <strong>建立專案</strong>
+            在你要放專案的上層資料夾開啟 PowerShell，執行：
+            <div class="codebox">
+              <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+              <pre><code>npm create cloudflare@latest -- my-first-worker</code></pre>
+            </div>
+          </li>
+          <li>
+            <strong>依提示選擇</strong>
+            選擇 Hello World、Worker only、JavaScript、使用 Git，第一次先不要部署。選項文字可能隨工具版本微調，以「純 Worker + JavaScript」為目標即可。
+          </li>
+          <li>
+            <strong>進入專案並啟動本機預覽</strong>
+            <div class="codebox">
+              <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+              <pre><code>Set-Location .\my-first-worker
+npx wrangler dev</code></pre>
+            </div>
+            預設會提供 <a href="http://localhost:8787/" target="_blank" rel="noopener">http://localhost:8787</a>。這個 PowerShell 視窗要保持開啟。
+          </li>
+          <li>
+            <strong>修改 <span class="inline-code">src/index.js</span></strong>
+            用下列內容取代範例程式：
+          </li>
+        </ol>
+
+        <div class="codebox">
+          <div class="codehead"><span>src/index.js</span><button class="copy" type="button">複製</button></div>
+          <pre><code>function json(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store"
+    }
+  });
+}
+
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    if (request.method !== "GET") {
+      return json({ ok: false, error: "只接受 GET 請求" }, 405);
+    }
+
+    if (url.pathname === "/health") {
+      return json({ ok: true, status: "healthy" });
+    }
+
+    if (url.pathname === "/api/hello") {
+      const rawName = url.searchParams.get("name")?.trim() || "訪客";
+      const name = rawName.slice(0, 50);
+
+      return json({
+        ok: true,
+        message: "你好，" + name + "！",
+        time: new Date().toISOString()
+      });
+    }
+
+    if (url.pathname === "/") {
+      return new Response(
+        "Cloudflare Worker 正常運作。\n" +
+        "請試試 /health 或 /api/hello?name=Yuansong",
+        { headers: { "content-type": "text/plain; charset=utf-8" } }
+      );
+    }
+
+    return json({ ok: false, error: "Not Found" }, 404);
+  }
+};</code></pre>
+        </div>
+
+        <h3>測試三個網址</h3>
+        <div class="codebox">
+          <div class="codehead"><span>PowerShell（另開一個視窗）</span><button class="copy" type="button">複製</button></div>
+          <pre><code>Invoke-WebRequest -Uri 'http://localhost:8787/'
+Invoke-RestMethod -Uri 'http://localhost:8787/health'
+Invoke-RestMethod -Uri 'http://localhost:8787/api/hello?name=Yuansong'</code></pre>
+        </div>
+
+        <div class="callout success">
+          <span class="callout-title">成功標準</span>
+          首頁回傳文字；<span class="inline-code">/health</span> 的 <span class="inline-code">ok</span> 是 true；<span class="inline-code">/api/hello</span> 回傳問候與 UTC 時間。任意其他路徑應回傳 404。
+        </div>
+
+        <h3>你剛才學到的核心</h3>
+        <ul>
+          <li><span class="inline-code">request.method</span>：判斷 HTTP 方法。</li>
+          <li><span class="inline-code">new URL(request.url)</span>：拆解路徑與查詢參數。</li>
+          <li><span class="inline-code">Response</span>：設定內容、狀態碼與回應標頭。</li>
+          <li>輸入要驗證與限制長度；不能直接相信使用者傳入的資料。</li>
+        </ul>
+      </section>
+
+      <section id="deploy">
+        <p class="section-kicker">07 · Deploy</p>
+        <h2>部署並取得公開網址</h2>
+        <div class="callout warning">
+          <span class="callout-title">部署是對外狀態變更</span>
+          執行部署後，程式會出現在公開網路。先確認範例中沒有密碼、API key、個資或內部網址。
+        </div>
+        <ol class="steps">
+          <li>
+            <strong>登入 Cloudflare</strong>
+            <div class="codebox">
+              <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+              <pre><code>npx wrangler login</code></pre>
+            </div>
+            Wrangler 會開啟瀏覽器，請在 Cloudflare 頁面確認授權。
+          </li>
+          <li>
+            <strong>部署</strong>
+            <div class="codebox">
+              <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+              <pre><code>npx wrangler deploy</code></pre>
+            </div>
+          </li>
+          <li>
+            <strong>記下網址並做煙霧測試</strong>
+            Wrangler 會輸出類似 <span class="inline-code">https://my-first-worker.&lt;你的子網域&gt;.workers.dev</span> 的網址。
+          </li>
+        </ol>
+
+        <div class="codebox">
+          <div class="codehead"><span>PowerShell：把網址換成自己的</span><button class="copy" type="button">複製</button></div>
+          <pre><code>$workerUrl = 'https://my-first-worker.YOUR-SUBDOMAIN.workers.dev'
+Invoke-RestMethod -Uri ($workerUrl + '/health')
+Invoke-RestMethod -Uri ($workerUrl + '/api/hello?name=Yuansong')</code></pre>
+        </div>
+        <p>第一次啟用 <span class="inline-code">workers.dev</span> 後，若短暫看到 523，可稍候片刻再測試。正式、關鍵業務建議使用自己的 Custom Domain 或 Route，而不是只依賴 <span class="inline-code">workers.dev</span>。</p>
+
+        <h3>建議保留的專案檔</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>檔案／資料夾</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><span class="inline-code">src/index.js</span></td><td>Worker 的主要程式</td></tr>
+              <tr><td><span class="inline-code">wrangler.jsonc</span></td><td>名稱、進入點、相容日期、bindings 與部署設定</td></tr>
+              <tr><td><span class="inline-code">package.json</span></td><td>依賴與 npm 指令</td></tr>
+              <tr><td><span class="inline-code">package-lock.json</span></td><td>鎖定實際套件版本，應提交 Git</td></tr>
+              <tr><td><span class="inline-code">.gitignore</span></td><td>排除 node_modules、機密與本機暫存</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="static-site">
+        <p class="section-kicker">08 · Static assets</p>
+        <h2>如何發布單檔 HTML？</h2>
+        <p>Cloudflare 對新專案建議使用 Workers Static Assets 來發布靜態網站、SPA 或全端應用。若只有一個 HTML，也可以把它放在專案的 <span class="inline-code">public</span> 資料夾。</p>
+        <ol class="steps">
+          <li>
+            <strong>建立靜態網站專案</strong>
+            <div class="codebox">
+              <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+              <pre><code>npm create cloudflare@latest -- my-static-site</code></pre>
+            </div>
+            在建立精靈中選擇 Hello World → Static site。
+          </li>
+          <li>
+            <strong>把網頁放入 public</strong>
+            將你的單檔 HTML 命名為 <span class="inline-code">index.html</span>，放到 <span class="inline-code">public</span> 資料夾。
+          </li>
+          <li>
+            <strong>本機預覽</strong>
+            <div class="codebox">
+              <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+              <pre><code>Set-Location .\my-static-site
+npx wrangler dev</code></pre>
+            </div>
+          </li>
+          <li>
+            <strong>部署</strong>
+            <div class="codebox">
+              <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+              <pre><code>npx wrangler deploy</code></pre>
+            </div>
+          </li>
+        </ol>
+
+        <div class="callout danger">
+          <span class="callout-title">重要：網站上線，不等於資料會同步</span>
+          如果你的 HTML 把資料存在瀏覽器 <span class="inline-code">localStorage</span>，資料仍只存在該瀏覽器與該裝置。換電腦、清除瀏覽器資料或使用無痕模式都可能看不到。多人共用需另外設計後端，例如 Worker + D1；原有工具仍應提供 JSON 匯出與匯入備份。
+        </div>
+      </section>
+
+      <section id="domains">
+        <p class="section-kicker">09 · Routing</p>
+        <h2>綁定自己的網域</h2>
+        <p>Worker 要接收網路請求，常見有三種入口：</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>方式</th><th>用途</th><th>例子</th></tr></thead>
+            <tbody>
+              <tr><td><strong>workers.dev</strong></td><td>快速開始、個人或測試用途</td><td><span class="inline-code">my-api.example.workers.dev</span></td></tr>
+              <tr><td><strong>Custom Domain</strong></td><td>Worker 本身就是此主機名稱的來源</td><td><span class="inline-code">api.example.com</span></td></tr>
+              <tr><td><strong>Route</strong></td><td>Worker 放在既有來源伺服器前方處理指定路徑</td><td><span class="inline-code">www.example.com/api/*</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>控制台設定 Custom Domain</h3>
+        <ol>
+          <li>網域必須已加入 Cloudflare。</li>
+          <li>進入 <strong>Workers &amp; Pages</strong>，選擇你的 Worker。</li>
+          <li>開啟 <strong>Settings → Domains &amp; Routes</strong>。</li>
+          <li>選擇 <strong>Add → Custom domain</strong>，輸入完整主機名稱，例如 <span class="inline-code">api.example.com</span>。</li>
+          <li>等待 DNS 與憑證生效後，使用 HTTPS 實測。</li>
+        </ol>
+        <div class="callout warning">
+          <span class="callout-title">Route 最常見的錯誤</span>
+          Route 需要對應的 Cloudflare 代理 DNS 記錄。少了橘色雲朵代理記錄，請求可能根本不會抵達 Worker。若 Worker 就是來源，優先考慮 Custom Domain。
+        </div>
+      </section>
+
+      <section id="storage">
+        <p class="section-kicker">10 · Data</p>
+        <h2>KV、D1、R2、Durable Objects 怎麼選？</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>服務</th><th>適合資料</th><th>典型用途</th><th>注意</th></tr></thead>
+            <tbody>
+              <tr><td><strong>KV</strong></td><td>Key → Value</td><td>設定、快取、偏好、允許／拒絕清單</td><td>讀多寫少；最終一致，不適合即時庫存扣減</td></tr>
+              <tr><td><strong>D1</strong></td><td>關聯式資料</td><td>會員、表單、訂單、內容管理</td><td>採 SQLite SQL 語意；先設計 schema 與 migration</td></tr>
+              <tr><td><strong>R2</strong></td><td>檔案／物件</td><td>圖片、影片、附件、匯出檔</td><td>S3 相容；費用包含儲存與操作</td></tr>
+              <tr><td><strong>Durable Objects</strong></td><td>需要協調的狀態</td><td>聊天室、WebSocket、訂位鎖定、每使用者狀態</td><td>用於強一致與協調，不是所有 API 的預設資料庫</td></tr>
+              <tr><td><strong>Queues</strong></td><td>待處理訊息</td><td>寄信、縮圖、Webhook 重試、批次處理</td><td>非同步；設計重試、冪等與失敗處理</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>一個實務判斷法</h3>
+        <div class="grid">
+          <article class="card"><h4>要查表、排序、關聯</h4><p>選 D1。</p></article>
+          <article class="card"><h4>用一個 key 很快取值</h4><p>選 KV，但接受最終一致。</p></article>
+          <article class="card"><h4>要存圖片或大型檔案</h4><p>選 R2。</p></article>
+          <article class="card"><h4>不能發生重複訂位</h4><p>評估 Durable Objects 或具交易保證的資料設計。</p></article>
+        </div>
+
+        <div class="callout">
+          <span class="callout-title">常見組合</span>
+          Worker 處理 API → D1 存結構化資料 → R2 存附件 → Queue 處理非同步工作。bindings 只授權 Worker 存取明確連接的資源。
+        </div>
+      </section>
+
+      <section id="secrets">
+        <p class="section-kicker">11 · Configuration</p>
+        <h2>環境變數與機密</h2>
+        <p>一般設定可放環境變數；API key、token、密碼與連線字串必須放 Secret。兩者都會透過 <span class="inline-code">env</span> 交給 Worker，但 Secret 的值不會在控制台或 Wrangler 中再次顯示。</p>
+
+        <h3>正式環境新增 Secret</h3>
+        <div class="codebox">
+          <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+          <pre><code>npx wrangler secret put WEATHER_API_KEY</code></pre>
+        </div>
+        <p>依提示貼入值。不要把機密直接寫在 <span class="inline-code">wrangler.jsonc</span> 或程式碼。</p>
+
+        <h3>程式中讀取</h3>
+        <div class="codebox">
+          <div class="codehead"><span>JavaScript</span><button class="copy" type="button">複製</button></div>
+          <pre><code>export default {
+  async fetch(request, env) {
+    const apiKey = env.WEATHER_API_KEY;
+
+    if (!apiKey) {
+      return new Response("缺少必要設定", { status: 500 });
+    }
+
+    return new Response("Secret 已載入，但不會輸出它的內容。");
+  }
+};</code></pre>
+        </div>
+
+        <h3>本機開發</h3>
+        <p>在 Wrangler 設定檔旁建立 <span class="inline-code">.dev.vars</span> 或 <span class="inline-code">.env</span>，二選一，不要同時混用。並把它加入 <span class="inline-code">.gitignore</span>。</p>
+        <div class="codebox">
+          <div class="codehead"><span>.dev.vars</span><button class="copy" type="button">複製</button></div>
+          <pre><code>WEATHER_API_KEY="local-development-value"</code></pre>
+        </div>
+        <div class="codebox">
+          <div class="codehead"><span>.gitignore</span><button class="copy" type="button">複製</button></div>
+          <pre><code>.dev.vars*
+.env*
+node_modules/</code></pre>
+        </div>
+        <div class="callout danger">
+          <span class="callout-title">若曾把機密提交到 Git</span>
+          刪除檔案不代表歷史中的值消失。立即撤銷／輪替該機密，再處理 Git 歷史；不要只做一次新 commit。
+        </div>
+      </section>
+
+      <section id="observe">
+        <p class="section-kicker">12 · Operations</p>
+        <h2>記錄、除錯與回復舊版本</h2>
+        <h3>本機除錯</h3>
+        <ul>
+          <li>用 <span class="inline-code">npx wrangler dev</span> 重現問題。</li>
+          <li>用 <span class="inline-code">console.log()</span> 記錄必要資訊，但不要輸出 token、密碼或完整個資。</li>
+          <li>測試正常路徑、404、錯誤 HTTP 方法、缺少參數與過長輸入。</li>
+        </ul>
+
+        <h3>查看線上即時記錄</h3>
+        <div class="codebox">
+          <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+          <pre><code>npx wrangler tail</code></pre>
+        </div>
+        <p>也可以在 Worker 的 Observability／Logs 頁面查詢執行記錄。新建立的 Workers 目前預設啟用 Workers Logs；既有專案仍應檢查設定。</p>
+
+        <h3>版本與部署</h3>
+        <p>每次程式或設定變更都會建立版本；部署決定哪些版本正在接收流量。若只想先上傳版本供預覽，不立即切換正式流量，可使用：</p>
+        <div class="codebox">
+          <div class="codehead"><span>PowerShell</span><button class="copy" type="button">複製</button></div>
+          <pre><code>npx wrangler versions upload</code></pre>
+        </div>
+
+        <h3>回復舊版本</h3>
+        <div class="codebox">
+          <div class="codehead"><span>PowerShell（會立刻改變正式流量）</span><button class="copy" type="button">複製</button></div>
+          <pre><code>npx wrangler rollback</code></pre>
+        </div>
+        <p>也可在控制台 Worker → Deployments，選擇舊版本右側選單後 Rollback。</p>
+        <div class="callout warning">
+          <span class="callout-title">程式可以回復，資料不一定能回復</span>
+          Worker 版本不會替 KV、D1、R2 等資料狀態建立相同時間點的回復。若新版已改變資料結構或刪除 binding，直接回復舊程式可能失敗。正式系統要另外規劃 migration 與資料備份。
+        </div>
+
+        <h3>常見問題快速診斷</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>症狀</th><th>先檢查</th></tr></thead>
+            <tbody>
+              <tr><td>找不到 npm／node</td><td>Node.js 是否安裝，重開終端機後再執行版本檢查</td></tr>
+              <tr><td>本機可用，線上 500</td><td>Secret／binding 是否部署、相容日期、線上 logs</td></tr>
+              <tr><td>瀏覽器出現 CORS 錯誤</td><td>預檢 OPTIONS、允許來源／方法／標頭；CORS 不等於認證</td></tr>
+              <tr><td>Custom Domain 找不到</td><td>網域是否在 Cloudflare、DNS／路由是否正確、憑證是否完成</td></tr>
+              <tr><td>Route 完全沒觸發</td><td>對應 DNS 記錄是否存在並啟用 Cloudflare 代理</td></tr>
+              <tr><td>資料剛寫入 KV 卻讀到舊值</td><td>KV 是最終一致；需要強一致時重新選擇資料模型</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="pricing">
+        <p class="section-kicker">13 · Cost</p>
+        <h2>免費額度與費用觀念</h2>
+        <p class="lede">以下為 2026-08-18 查核的 Workers 核心額度摘要。Cloudflare 會調整方案、限制與計價，正式上線前應重新查看官方 Pricing 與 Limits。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>項目</th><th>Workers Free</th><th>Workers Paid／Standard</th></tr></thead>
+            <tbody>
+              <tr><td>請求</td><td>每日 100,000 次</td><td>每月含 1,000 萬次，超額依量計費</td></tr>
+              <tr><td>CPU 時間</td><td>每次呼叫 10 ms</td><td>每月含 3,000 萬 CPU ms；單次上限依類型與設定</td></tr>
+              <tr><td>記憶體</td><td>128 MB</td><td>128 MB</td></tr>
+              <tr><td>基本費用</td><td>無月費</td><td>帳戶最低每月 US$5</td></tr>
+              <tr><td>Workers 資料傳出</td><td colspan="2">核心 Workers 計價不另收資料傳輸／頻寬費；相連服務仍有自己的計價</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul>
+          <li>D1、KV、R2、Queues、Workers AI 等各有獨立用量與額度，不能只看 Workers 請求數。</li>
+          <li>Free 的 CPU 10 ms 是運算時間，不是整個 HTTP 請求經過的牆鐘時間。</li>
+          <li>先用 Analytics 觀察請求、錯誤與 CPU；對外開放的 API 要防止濫用。</li>
+          <li>第三方 API、寄信、簡訊、AI 模型與資料庫也可能產生成本。</li>
+        </ul>
+        <p><a href="https://developers.cloudflare.com/workers/platform/pricing/" target="_blank" rel="noopener">查看最新 Workers Pricing</a> · <a href="https://developers.cloudflare.com/workers/platform/limits/" target="_blank" rel="noopener">查看最新 Workers Limits</a></p>
+      </section>
+
+      <section id="security">
+        <p class="section-kicker">14 · Safety</p>
+        <h2>上線前安全檢查</h2>
+        <ul class="checklist">
+          <li><label><input type="checkbox"><span>程式、Git 歷史與前端檔案中沒有 API key、token、密碼或私人連線字串。</span></label></li>
+          <li><label><input type="checkbox"><span>所有輸入都檢查型別、長度、格式與允許範圍。</span></label></li>
+          <li><label><input type="checkbox"><span>需要登入的功能有真正的認證與授權；CORS 不是權限控制。</span></label></li>
+          <li><label><input type="checkbox"><span>錯誤回應不洩漏 stack trace、內部 ID、資料庫結構或機密。</span></label></li>
+          <li><label><input type="checkbox"><span>Webhook 有驗證簽章、時間戳或來源機制，並防止重送造成重複處理。</span></label></li>
+          <li><label><input type="checkbox"><span>建立測試網址或預覽版本，完成煙霧測試後才切換正式流量。</span></label></li>
+          <li><label><input type="checkbox"><span>確認費用、流量濫用風險、記錄保留與個資處理方式。</span></label></li>
+          <li><label><input type="checkbox"><span>知道如何查看 logs、停止錯誤部署與回復舊版本。</span></label></li>
+        </ul>
+        <div class="callout danger">
+          <span class="callout-title">不要把 Worker 當成「隱藏前端 API key」的魔法盒</span>
+          Secret 能避免 key 出現在瀏覽器，但你的公開 Worker 端點仍可能被任何人呼叫。還要加上認證、驗證、速率限制、用量監控與必要的來源限制。
+        </div>
+      </section>
+
+      <section id="roadmap">
+        <p class="section-kicker">15 · Next steps</p>
+        <h2>依需求選下一條學習路線</h2>
+        <div class="grid">
+          <article class="card">
+            <span class="number">A</span>
+            <h3>公開單檔 HTML</h3>
+            <p><strong>Workers Static Assets</strong></p>
+            <p>先把 <span class="inline-code">index.html</span> 放進 <span class="inline-code">public</span>，本機預覽、部署，再綁 Custom Domain。</p>
+          </article>
+          <article class="card">
+            <span class="number">B</span>
+            <h3>多人共用表單</h3>
+            <p><strong>Worker + D1</strong></p>
+            <p>設計資料表、migration、輸入驗證、登入權限、備份與管理介面。不要再依賴 localStorage 當共享資料庫。</p>
+          </article>
+          <article class="card">
+            <span class="number">C</span>
+            <h3>上傳圖片或附件</h3>
+            <p><strong>Worker + R2</strong></p>
+            <p>設計檔案大小與格式限制、物件 key、授權下載、生命週期與清理機制。</p>
+          </article>
+          <article class="card">
+            <span class="number">D</span>
+            <h3>定時同步外部資料</h3>
+            <p><strong>Cron Trigger + Queue</strong></p>
+            <p>排程負責觸發，Queue 負責緩衝與重試。Cron 使用 UTC，台灣時間要換算。</p>
+          </article>
+        </div>
+
+        <h3>建議學習順序</h3>
+        <ol>
+          <li>Request、Response、HTTP 方法與狀態碼。</li>
+          <li>Wrangler：dev、deploy、tail、versions。</li>
+          <li>Git 與預覽部署。</li>
+          <li>Secrets、bindings 與資料模型。</li>
+          <li>測試、觀測、成本與安全。</li>
+          <li>有真實需求後，再選 D1／KV／R2／Durable Objects／Queues。</li>
+        </ol>
+
+        <div class="callout success">
+          <span class="callout-title">給 Python 使用者</span>
+          Workers 目前也提供第一級 Python 支援，可使用 FastAPI、Pydantic 等支援套件並透過 FFI 存取 Runtime APIs。新手仍建議先用本手冊的 JavaScript 範例理解平台模型，再依專案需求切換 Python。
+        </div>
+      </section>
+
+      <section id="faq">
+        <p class="section-kicker">16 · FAQ</p>
+        <h2>常見問題</h2>
+        <details>
+          <summary>一定要買網域才能使用嗎？</summary>
+          <div>不用。部署後可先使用 Cloudflare 提供的 <span class="inline-code">workers.dev</span> 子網域。正式業務再綁定自己的 Custom Domain 或 Route。</div>
+        </details>
+        <details>
+          <summary>Workers 和 Cloudflare Pages 有什麼差別？</summary>
+          <div>兩者歷史定位不同，但能力逐漸整合。對新的靜態、SPA 與全端專案，Cloudflare 官方目前建議使用 Workers Static Assets。既有 Pages 專案不需要只因名稱不同就立刻搬遷。</div>
+        </details>
+        <details>
+          <summary>我可以用 npm 套件嗎？</summary>
+          <div>很多套件可以，但 Workers runtime 不是完整傳統 Node.js 主機。平台支援一部分 Node.js APIs，部分套件需要 <span class="inline-code">nodejs_compat</span>，仍應查看相容文件並實測。</div>
+        </details>
+        <details>
+          <summary>Workers 可以連接 Google Sheets 嗎？</summary>
+          <div>可以透過 Google API 或自己的中介服務呼叫，但要妥善處理 OAuth／服務帳戶、權限、配額與機密。不要把憑證放在前端 HTML 或公開 Git。</div>
+        </details>
+        <details>
+          <summary>把 localStorage 網頁部署後，員工就能共用同一份資料嗎？</summary>
+          <div>不會。localStorage 仍是每個瀏覽器各自保存。要共用資料，需要 D1、Google Sheets、外部資料庫或其他後端，並加入登入、授權與操作記錄。</div>
+        </details>
+        <details>
+          <summary>可以把 Worker 當成 24 小時常駐 Bot 嗎？</summary>
+          <div>Worker 主要由 HTTP、排程、Queue 等事件觸發，不是傳統常駐程序。請改成事件驅動設計；需要長流程時再評估 Workflows、Queues 或其他執行環境。</div>
+        </details>
+        <details>
+          <summary>如何避免一次部署就影響全部使用者？</summary>
+          <div>使用 Git、預覽 URL、<span class="inline-code">wrangler versions upload</span> 與部署管理。較成熟的專案可採漸進式部署，把部分流量導向新版本，再逐步擴大。</div>
+        </details>
+      </section>
+
+      <section id="references">
+        <p class="section-kicker">Sources</p>
+        <h2>官方參考資料</h2>
+        <p>本手冊以 Cloudflare 官方產品頁與開發者文件為基礎，資料查核日為 2026-08-18。介面、額度、價格與命令可能更新，操作前以官方頁面為準。</p>
+        <ol class="source-list">
+          <li><a href="https://www.cloudflare.com/zh-tw/developer-platform/products/workers/" target="_blank" rel="noopener">Cloudflare Workers 產品介紹</a><small>用途、運作方式與主要使用案例</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/get-started/guide/" target="_blank" rel="noopener">Get started - CLI</a><small>C3、Wrangler、本機預覽與部署</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/wrangler/install-and-update/" target="_blank" rel="noopener">Install / Update Wrangler</a><small>Wrangler 安裝方式與系統需求</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/static-assets/get-started/" target="_blank" rel="noopener">Workers Static Assets - Get Started</a><small>靜態與全端網站發布</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/configuration/routing/" target="_blank" rel="noopener">Routes and domains</a><small>workers.dev、Custom Domains 與 Routes</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/configuration/secrets/" target="_blank" rel="noopener">Secrets</a><small>正式環境機密與控制台設定</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/configuration/environment-variables/" target="_blank" rel="noopener">Environment variables</a><small>環境變數、本機 .dev.vars／.env 與 Git 安全</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/observability/logs/" target="_blank" rel="noopener">Workers Logs</a><small>記錄、即時 logs 與可觀測性</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/versions-and-deployments/" target="_blank" rel="noopener">Versions &amp; Deployments</a><small>版本、部署、預覽與流量管理</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/" target="_blank" rel="noopener">Rollbacks</a><small>Wrangler 與控制台回復方式</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/platform/pricing/" target="_blank" rel="noopener">Workers Pricing</a><small>Free／Paid 計價與包含額度</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/platform/limits/" target="_blank" rel="noopener">Workers Limits</a><small>請求、CPU、記憶體與其他限制</small></li>
+          <li><a href="https://developers.cloudflare.com/kv/concepts/how-kv-works/" target="_blank" rel="noopener">How Workers KV works</a><small>讀取模型、最終一致性與適用情境</small></li>
+          <li><a href="https://developers.cloudflare.com/d1/" target="_blank" rel="noopener">Cloudflare D1</a><small>Serverless SQL 與 SQLite 語意</small></li>
+          <li><a href="https://developers.cloudflare.com/r2/how-r2-works/" target="_blank" rel="noopener">How R2 works</a><small>S3 相容物件儲存</small></li>
+          <li><a href="https://developers.cloudflare.com/durable-objects/concepts/what-are-durable-objects/" target="_blank" rel="noopener">What are Durable Objects?</a><small>強一致狀態與協調</small></li>
+          <li><a href="https://developers.cloudflare.com/queues/reference/how-queues-works/" target="_blank" rel="noopener">How Queues works</a><small>非同步訊息與生產者／消費者</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/configuration/cron-triggers/" target="_blank" rel="noopener">Cron Triggers</a><small>排程處理與 UTC 時區</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/languages/" target="_blank" rel="noopener">Workers Languages</a><small>JavaScript、TypeScript、Python、Rust 與 WebAssembly</small></li>
+          <li><a href="https://developers.cloudflare.com/workers/runtime-apis/nodejs/" target="_blank" rel="noopener">Node.js compatibility</a><small>Node.js API 支援範圍與相容旗標</small></li>
+        </ol>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>Cloudflare Workers 新手基礎教學與使用手冊 v1 · 2026-08-18</p>
+    <p>本文件為學習與操作參考；正式環境請依最新官方文件、資安政策與實際用量重新驗證。</p>
+  </footer>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var root = document.documentElement;
+      var themeButton = document.getElementById("themeToggle");
+      var printButton = document.getElementById("printButton");
+      var menuButton = document.getElementById("menuToggle");
+      var sidebar = document.getElementById("sidebar");
+      var progress = document.getElementById("progress");
+      var tocLinks = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
+      var sections = Array.prototype.slice.call(document.querySelectorAll("main section[id]"));
+
+      themeButton.addEventListener("click", function () {
+        var isDark = root.getAttribute("data-theme") === "dark";
+        root.setAttribute("data-theme", isDark ? "light" : "dark");
+        themeButton.setAttribute("aria-label", isDark ? "切換成深色模式" : "切換成淺色模式");
+      });
+
+      printButton.addEventListener("click", function () {
+        window.print();
+      });
+
+      menuButton.addEventListener("click", function () {
+        var open = sidebar.classList.toggle("open");
+        menuButton.setAttribute("aria-expanded", String(open));
+      });
+
+      tocLinks.forEach(function (link) {
+        link.addEventListener("click", function () {
+          sidebar.classList.remove("open");
+          menuButton.setAttribute("aria-expanded", "false");
+        });
+      });
+
+      document.addEventListener("click", function (event) {
+        if (window.innerWidth > 980 || !sidebar.classList.contains("open")) return;
+        if (!sidebar.contains(event.target) && !menuButton.contains(event.target)) {
+          sidebar.classList.remove("open");
+          menuButton.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      document.querySelectorAll(".codebox").forEach(function (box) {
+        var button = box.querySelector(".copy");
+        var code = box.querySelector("code");
+        if (!button || !code) return;
+
+        button.addEventListener("click", function () {
+          var value = code.textContent;
+          var done = function () {
+            var old = button.textContent;
+            button.textContent = "已複製";
+            setTimeout(function () { button.textContent = old; }, 1300);
+          };
+
+          if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(value).then(done).catch(function () {
+              fallbackCopy(value, done);
+            });
+          } else {
+            fallbackCopy(value, done);
+          }
+        });
+      });
+
+      function fallbackCopy(value, done) {
+        var area = document.createElement("textarea");
+        area.value = value;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        try {
+          document.execCommand("copy");
+          done();
+        } finally {
+          area.remove();
+        }
+      }
+
+      function updateProgress() {
+        var height = document.documentElement.scrollHeight - window.innerHeight;
+        var ratio = height > 0 ? window.scrollY / height : 0;
+        progress.style.width = Math.min(100, Math.max(0, ratio * 100)) + "%";
+      }
+
+      window.addEventListener("scroll", updateProgress, { passive: true });
+      window.addEventListener("resize", updateProgress);
+      updateProgress();
+
+      if ("IntersectionObserver" in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            tocLinks.forEach(function (link) {
+              var active = link.getAttribute("href") === "#" + entry.target.id;
+              link.classList.toggle("active", active);
+              if (active) link.setAttribute("aria-current", "location");
+              else link.removeAttribute("aria-current");
+            });
+          });
+        }, { rootMargin: "-18% 0px -68% 0px", threshold: 0 });
+
+        sections.forEach(function (section) { observer.observe(section); });
+      }
+    }());
+  </script>
+</body>
+</html>
